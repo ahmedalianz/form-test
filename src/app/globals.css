@@ -25,3 +25,37 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+.basic-single {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+.form-container {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.sub-option-container {
+  margin-bottom: 15px;
+}
+
+.sub-option-label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.other-input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 15px;
+  box-sizing: border-box;
+}
+
+.submit-button {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #4caf50;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
