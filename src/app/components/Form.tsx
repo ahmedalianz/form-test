@@ -2,6 +2,7 @@
 import {useEffect, useState} from 'react';
 import HttpClient from '../utils/HttpClient';
 import CustomSelect from './CustomSelect';
+import _ from 'lodash';
 export interface Category {
   id: string;
   name: string;
@@ -26,9 +27,7 @@ export default function Form() {
   const [subcategoryOptions, setSubCategoryOptions] = useState<
     SubCategoryOption[]
   >([]);
-  const [subcategoryOptionsNested, setSubCategoryOptionsNested] = useState<
-    SubCategoryOption[]
-  >([]);
+
   const [selectedCategory, setSelectedCategory] = useState<
     Category | undefined
   >();
@@ -47,7 +46,6 @@ export default function Form() {
       ]);
     } catch (error) {
       console.log(error);
-      alert('There seems to be a problem , please try again later.');
     }
   };
   const getSubCategoryChildren = async (
@@ -68,16 +66,6 @@ export default function Form() {
       );
     } catch (error) {
       console.log(error);
-      alert('There seems to be a problem , please try again later.');
-    }
-  };
-  const getSubCategoryOptionsChildren = async (id: string) => {
-    try {
-      const result = await HttpClient.get(`/get-options-child/${id}}`);
-      setSubCategoryOptionsNested(result?.data?.data);
-    } catch (error) {
-      console.log(error);
-      alert('There seems to be a problem , please try again later.');
     }
   };
 
@@ -102,36 +90,40 @@ export default function Form() {
     }
   };
 
-  const handleSubOptionChange = (
+  const handleSubOptionChange = async (
     selectedOption: SubCategoryOption | undefined,
     id: string,
   ) => {
     let newArr = [...subcategoryOptions];
     if (newArr.find(element => element.id === id)) {
-      newArr.find(element => element.id === id).value = selectedOption?.name;
+      try {
+        const result = await HttpClient.get(`/get-options-child/${id}}`);
+        newArr.find(element => element.id === id).value = selectedOption?.name;
+        newArr.find(element => element.id === id).list =
+          result?.data?.data || [];
+      } catch (error) {
+        console.log(error);
+      }
     }
     setSubCategoryOptions(newArr);
-    getSubCategoryOptionsChildren(id);
-  };
-  const handleSubOptionInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    id: string,
-  ) => {
-    let newArr = [...subcategoryOptions];
-    if (newArr.find(element => element.id === id)) {
-      newArr.find(element => element.id === id).other_value = e.target.value;
-    }
-    setSubCategoryOptionsNested(newArr);
   };
   const handleSubOptionNestedChange = (
     selectedOption: SubCategoryOption | undefined,
     id: string,
   ) => {
-    let newArr = [...subcategoryOptionsNested];
+    let newArr = _.cloneDeep(subcategoryOptions);
     if (newArr.find(element => element.id === id)) {
-      newArr.find(element => element.id === id).value = selectedOption?.name;
+      if (
+        newArr
+          .find(element => element.id === id)
+          .list.find(element => element.id === id)
+      ) {
+        newArr
+          .find(element => element.id === id)
+          .list.find(element => element.id === id).value = selectedOption?.name;
+      }
     }
-    setSubCategoryOptionsNested(newArr);
+    setSubCategoryOptions(newArr);
   };
 
   useEffect(() => {
@@ -205,21 +197,12 @@ export default function Form() {
                     }
                     placeholder={`Select ${option.name}`}
                   />
-                  {option?.value === 'Other' && (
-                    <input
-                      type="text"
-                      value={option?.other_value}
-                      onChange={e => handleSubOptionInputChange(e, option.id)}
-                      placeholder={`Enter other ${option.name.toLowerCase()}`}
-                      className="other-input"
-                    />
-                  )}
 
                   {option?.value && (
                     <>
-                      {subcategoryOptionsNested?.length > 0 && (
+                      {option?.list?.length > 0 && (
                         <>
-                          {subcategoryOptionsNested.map(optionNested => (
+                          {option?.list.map(optionNested => (
                             <div
                               key={optionNested.id}
                               className="sub-option-container">
