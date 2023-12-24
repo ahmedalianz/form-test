@@ -2,7 +2,6 @@
 import {useEffect, useState} from 'react';
 import HttpClient from '../utils/HttpClient';
 import CustomSelect from './CustomSelect';
-import _ from 'lodash';
 export interface Category {
   id: string;
   name: string;
@@ -111,7 +110,7 @@ export default function Form() {
     selectedOption: SubCategoryOption | undefined,
     id: string,
   ) => {
-    let newArr = _.cloneDeep(subcategoryOptions);
+    let newArr = [...subcategoryOptions];
     if (newArr.find(element => element.id === id)) {
       if (
         newArr
