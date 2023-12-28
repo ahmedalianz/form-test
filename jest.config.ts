@@ -4,7 +4,7 @@ module.exports = {
 
   transform: {
     '^.+\\.(ts|tsx)?$': 'ts-jest',
-    '^.+\\.(js|jsx)$': 'babel-jest',
+    '^.+\\.[tj]sx?$': ['babel-jest', {presets: ['@nrwl/react/babel']}],
   },
   transformIgnorePatterns: [
     '/node_modules/(?![@autofiy/autofiyable|@autofiy/property]).+\\.js$',
