@@ -1,7 +1,7 @@
 import React, {FC} from 'react';
 import Select from 'react-select';
 interface CustomSelectProps {
-  options: Array<any>;
+  options: Array<{value: string; label: string}>;
   onChange: (item: any) => void;
   value: any;
   placeholder: string;

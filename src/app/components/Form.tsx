@@ -1,7 +1,9 @@
 'use client';
-import {useEffect, useState} from 'react';
+import Image from 'next/image';
+import {MouseEvent, useEffect, useRef, useState} from 'react';
 import HttpClient from '../utils/HttpClient';
 import CustomSelect from './CustomSelect';
+import SubCategoryOptionComp from './SubCategoryOptionComp';
 export interface Category {
   id: string;
   name: string;
@@ -16,17 +18,18 @@ export interface SubCategoryOption {
   id: string;
   name: string;
   options: Array<{id: string; name: string}>;
-  value: string;
-  other_value: string;
 }
 
 export default function Form() {
+  const [finalOptions, setFinalOptions] = useState<any>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubCategories] = useState<SubCategory[]>([]);
   const [subcategoryOptions, setSubCategoryOptions] = useState<
     SubCategoryOption[]
   >([]);
-
+  const [loading, setLoading] = useState<boolean>(false);
+  const [submitted, setSubmitted] = useState(false);
+  const formRef = useRef(null);
   const [selectedCategory, setSelectedCategory] = useState<
     Category | undefined
   >();
@@ -38,6 +41,7 @@ export default function Form() {
     useState<string>('');
   const getCategories = async () => {
     try {
+      setLoading(true);
       const result = await HttpClient.get('/get_all_cats');
       setCategories([
         ...result?.data?.data?.categories,
@@ -45,33 +49,17 @@ export default function Form() {
       ]);
     } catch (error) {
       console.log(error);
-    }
-  };
-  const getSubCategoryChildren = async (
-    selectedOption: SubCategory | undefined,
-  ) => {
-    try {
-      const result = await HttpClient.get(
-        `/properties?cat=${selectedOption?.id}}`,
-      );
-      setSubCategoryOptions(
-        result?.data?.data?.map((option: SubCategoryOption) => {
-          let optionsWithOther = [
-            ...option.options,
-            {id: `other-${option.id}`, name: 'Other'},
-          ];
-          return {...option, options: optionsWithOther};
-        }),
-      );
-    } catch (error) {
-      console.log(error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleChangeCategory = (selectedOption: Category | undefined) => {
     setSelectedCategory(selectedOption);
+    setFinalOptions([{name: 'Main Category', value: selectedOption?.name}]);
     if (selectedOption?.id === 'other-category') {
       setOtherCategoryInput('');
+      setSubCategories([]);
     } else {
       selectedOption?.children &&
         setSubCategories([
@@ -83,53 +71,86 @@ export default function Form() {
 
   const handleChangeSubCategory = (selectedOption: SubCategory | undefined) => {
     setSelectedSubCategory(selectedOption);
-    getSubCategoryChildren(selectedOption);
+    setFinalOptions((prev: any) => [
+      ...prev,
+      {name: 'Sub Category', value: selectedOption?.name},
+    ]);
+
     if (selectedOption?.id === 'other-sub-category') {
       setOtherSubCategoryInput('');
+      setSubCategoryOptions([]);
+    } else {
+      getSubCategoryChildren(selectedOption);
+    }
+  };
+  const getSubCategoryChildren = async (
+    selectedOption: SubCategory | undefined,
+  ) => {
+    try {
+      setLoading(true);
+      const result = await HttpClient.get(
+        `/properties?cat=${selectedOption?.id}`,
+      );
+      setSubCategoryOptions(
+        result?.data?.data?.map((option: SubCategoryOption) => {
+          let optionsWithOther = [
+            ...option.options,
+            {id: `other-${option.name}-${option.id}`, name: 'Other'},
+          ];
+          return {...option, options: optionsWithOther};
+        }),
+      );
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSubOptionChange = async (
-    selectedOption: SubCategoryOption | undefined,
-    id: string,
-  ) => {
-    let newArr = [...subcategoryOptions];
-    if (newArr.find(element => element.id === id)) {
-      try {
-        const result = await HttpClient.get(`/get-options-child/${id}}`);
-        newArr.find(element => element.id === id).value = selectedOption?.name;
-        newArr.find(element => element.id === id).list =
-          result?.data?.data || [];
-      } catch (error) {
-        console.log(error);
-      }
-    }
-    setSubCategoryOptions(newArr);
-  };
-  const handleSubOptionNestedChange = (
-    selectedOption: SubCategoryOption | undefined,
-    id: string,
-  ) => {
-    let newArr = [...subcategoryOptions];
-    if (newArr.find(element => element.id === id)) {
-      if (
-        newArr
-          .find(element => element.id === id)
-          .list.find(element => element.id === id)
-      ) {
-        newArr
-          .find(element => element.id === id)
-          .list.find(element => element.id === id).value = selectedOption?.name;
-      }
-    }
-    setSubCategoryOptions(newArr);
-  };
+  const onSubmit = (e: MouseEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSubmitted(true);
 
+    setFinalOptions((prev: any[]) => [
+      ...prev.filter(option => option.value !== 'Other'),
+      ...Object.values(formRef?.current || {})
+        .filter((input: any) => input.className === 'other-input')
+        .map((e: any) => ({
+          value: e?.value,
+          name: e?.placeholder?.replace('Enter other ', ''),
+        })),
+    ]);
+  };
   useEffect(() => {
     getCategories();
   }, []);
-  return categories?.length > 0 ? (
-    <form className="form-container">
+  return submitted ? (
+    <table>
+      <tbody>
+        {finalOptions.map(
+          (item: {name: string; value: string}, index: number) => (
+            <tr key={index}>
+              <td>{item?.name || ''}</td>
+              <td>{item?.value || ''}</td>
+            </tr>
+          ),
+        )}
+      </tbody>
+    </table>
+  ) : (
+    <form className="form-container" onSubmit={onSubmit} ref={formRef}>
+      {loading && (
+        <div className="loading">
+          <Image
+            src={'/assets/loading.gif'}
+            alt="loading ..."
+            width={300}
+            height={300}
+            priority
+            quality={30}
+          />
+        </div>
+      )}
       <label htmlFor="dropdown1">Main Category:</label>
       <CustomSelect
         id="dropdown1"
@@ -145,6 +166,7 @@ export default function Form() {
 
       {selectedCategory?.id === 'other-category' && (
         <input
+          className="other-input"
           type="text"
           value={otherCategoryInput}
           onChange={e => setOtherCategoryInput(e.target.value)}
@@ -165,6 +187,7 @@ export default function Form() {
       />
       {selectedSubCategory?.id === 'other-sub-category' && (
         <input
+          className="other-input"
           type="text"
           value={otherSubCategoryInput}
           onChange={e => setOtherSubCategoryInput(e.target.value)}
@@ -173,77 +196,13 @@ export default function Form() {
       )}
       {selectedSubCategory && (
         <>
-          {subcategoryOptions?.length ? (
-            <>
-              {subcategoryOptions.map(option => (
-                <div key={option.id} className="sub-option-container">
-                  <label
-                    htmlFor={`dropdown-${option.id}`}
-                    className="sub-option-label">
-                    {option.name}:
-                  </label>
-                  <CustomSelect
-                    key={option.id}
-                    id={`dropdown-${option.id}`}
-                    options={option?.options?.map(subOption => ({
-                      value: subOption?.id,
-                      label: subOption?.name,
-                      ...subOption,
-                    }))}
-                    value={{value: option.id, label: option?.value}}
-                    onChange={selectedOption =>
-                      handleSubOptionChange(selectedOption, option.id)
-                    }
-                    placeholder={`Select ${option.name}`}
-                  />
-
-                  {option?.value && (
-                    <>
-                      {option?.list?.length > 0 && (
-                        <>
-                          {option?.list.map(optionNested => (
-                            <div
-                              key={optionNested.id}
-                              className="sub-option-container">
-                              <label
-                                htmlFor={`dropdown-${optionNested.id}`}
-                                className="sub-option-label">
-                                {optionNested.name}:
-                              </label>
-                              <CustomSelect
-                                key={optionNested.id}
-                                id={`dropdown-${optionNested.id}`}
-                                options={optionNested?.options?.map(
-                                  subOption => ({
-                                    value: subOption?.id,
-                                    label: subOption?.name,
-                                    ...subOption,
-                                  }),
-                                )}
-                                value={{
-                                  value: optionNested.id,
-                                  label: optionNested?.value,
-                                }}
-                                onChange={selectedOption =>
-                                  handleSubOptionNestedChange(
-                                    selectedOption,
-                                    optionNested.id,
-                                  )
-                                }
-                                placeholder={`Select ${optionNested.name}`}
-                              />
-                            </div>
-                          ))}
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
-            </>
-          ) : (
-            <p>loading ....</p>
-          )}
+          {subcategoryOptions?.length &&
+            subcategoryOptions.map(option => (
+              <SubCategoryOptionComp
+                key={option.id}
+                {...{option, setLoading, setFinalOptions}}
+              />
+            ))}
         </>
       )}
 
@@ -251,7 +210,5 @@ export default function Form() {
         Submit
       </button>
     </form>
-  ) : (
-    <p>loading ...</p>
   );
 }
